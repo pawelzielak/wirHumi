@@ -1,0 +1,48 @@
+name: PR Comment Auto-Responder
+
+on:
+  pull_request_review_comment:
+    types: [created]
+  issue_comment:
+    types: [created]
+
+jobs:
+  reply-to-comment:
+    # Only run if the comment is on a Pull Request and NOT made by the bot itself
+    if: ${{ github.event.issue.pull_request || github.event.comment.user.login != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issue-comments: write
+
+    steps:
+      - name: Auto-Reply to Comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Determine if this is a line comment on code or a general PR comment
+            const isReviewComment = context.eventName === 'pull_request_review_comment';
+            const comment = context.payload.comment;
+            const commenter = comment.user.login;
+
+            // Craft your automated response (You can integrate an AI API fetch here instead)
+            const replyMessage = `@${commenter}, thanks for the comment! I am an automated assistant watching this PR. The author has been notified and will review your feedback shortly.`;
+
+            if (isReviewComment) {
+              // Reply to a specific code-line comment thread
+              await github.rest.pulls.createReplyForReviewComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number || context.payload.pull_request.number,
+                comment_id: comment.id,
+                body: replyMessage
+              });
+            } else {
+              // Reply to a general high-level PR comment thread
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: replyMessage
+              });
+            }
